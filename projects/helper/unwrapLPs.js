@@ -8,7 +8,7 @@ const { getChainTransform, getFixBalances } = require('./portedTokens')
 const { getUniqueAddresses, normalizeAddress } = require('./tokenMapping')
 const { isLP, log, sliceIntoChunks, isICHIVaultToken, createIncrementArray, sleep } = require('./utils')
 const { sumArtBlocks, whitelistedNFTs, } = require('./nft')
-const wildCreditABI = require('../wildcredit/abi.json');
+const uniV3ABI = require('./abis/uniV3.json');
 const slipstreamNftABI = require('../arcadia-finance-v2/slipstreamNftABI.json');
 const { covalentGetTokens, } = require("./token");
 const SOLIDLY_VE_NFT_ABI = require('./abis/solidlyVeNft.json');
@@ -135,7 +135,7 @@ async function unwrapUniswapV4NFTs({ balances = {}, api, owner, nftAddress, stat
     if (uniV4PositionCallCount > 51) throw new Error('too many uniswap v4 position calls, find some other solution or remove caching, or batch owners')
 
     const defaultGraphEndpoints = {
-      ethereum: 'AdA6Ax3jtct69NnXfxNjWtPTe9gMtSEZx2tTQcT4VHu',
+      ethereum: 'DiYPVdygkfjDWhbxGSqAQxwBKmfKnkWQojqeM2rkLb3G',
       base: '6UjxSFHTUa98Y4Uh4Tb6suPVyYxgPHpPEPfmFNihzTHp',
       unichain: 'Bd8UnJU8jCRJKVjcW16GHM3FNdfwTojmWb3QwSAmv8Uc',
       bsc: '7JTFXJdejseGj6cnTo3V3SNu2AkWyXpGieZm5NL2eYAA',
@@ -153,7 +153,7 @@ async function unwrapUniswapV4NFTs({ balances = {}, api, owner, nftAddress, stat
               owner_in: ["${owner.toLowerCase()}"]
             }) {    id      }}`
     const data = await cachedGraphQuery(`uni-v4-positions/${chain}-${owner}`, endpoint, query, { fetchById: true, })
-    const positionIds = data.map(i => i.id)
+    const positionIds = Array.isArray(data) ? data.map(i => i.id) : []
     const verifiedPositionIds = []
 
 
@@ -321,6 +321,8 @@ async function unwrapUniswapV3NFTs({ balances = {}, nftsAndOwners = [], api, own
         case 'blast': nftAddress = '0x434575eaea081b735c985fa9bf63cd7b87e227f9'; break;
         case 'sonic': nftAddress = '0x743e03cceb4af2efa3cc76838f6e8b50b63f184c'; break;
         case 'flare': nftAddress = '0xD9770b1C7A6ccd33C75b5bcB1c0078f46bE46657'; break;
+        case 'hyperliquid': nftAddress = '0x6eDA206207c09e5428F281761DdC0D300851fBC8'; break;
+        case 'unichain': nftAddress = '0x943e6e07a7E8E791dAFC44083e54041D743C46E9'; break;
         default: throw new Error('missing default uniswap nft address chain: ' + chain)
       }
 
@@ -359,7 +361,7 @@ async function unwrapUniswapV3NFT({
   let nftIdFetcher = uniV3ExtraConfig.nftIdFetcher ?? nftAddress
 
   const factoryKey = getFactoryKey(chain, nftAddress)
-  if (!factories[factoryKey]) factories[factoryKey] = api.call({ target: nftAddress, abi: wildCreditABI.factory })
+  if (!factories[factoryKey]) factories[factoryKey] = api.call({ target: nftAddress, abi: uniV3ABI.factory })
   let factory = await factories[factoryKey]
 
   if (factory.toLowerCase() === '0xa08ae3d3f4da51c22d3c041e468bdf4c61405aab') factory = '0x71b08f13B3c3aF35aAdEb3949AFEb1ded1016127'
@@ -370,7 +372,7 @@ async function unwrapUniswapV3NFT({
     owners = getUniqueAddresses(owners, chain)
 
     const lengths = await api.multiCall({
-      abi: wildCreditABI.balanceOf,
+      abi: uniV3ABI.balanceOf,
       calls: owners.map((params) => ({ target: nftIdFetcher, params })),
     })
 
@@ -381,14 +383,14 @@ async function unwrapUniswapV3NFT({
     }
 
     positionIds = await api.multiCall({
-      abi: wildCreditABI.tokenOfOwnerByIndex,
+      abi: uniV3ABI.tokenOfOwnerByIndex,
       target: nftIdFetcher,
       calls: positionIDCalls,
     })
   }
 
   const positions = await api.multiCall({
-    abi: wildCreditABI.positions,
+    abi: uniV3ABI.positions,
     target: nftAddress,
     calls: positionIds
   })
@@ -398,13 +400,13 @@ async function unwrapUniswapV3NFT({
   const lpInfoArray = Object.values(lpInfo)
 
   const poolInfos = await api.multiCall({
-    abi: wildCreditABI.getPool,
+    abi: uniV3ABI.getPool,
     target: factory,
     calls: lpInfoArray.map((info) => ({ params: [info.token0, info.token1, info.fee] })),
   })
 
   const slot0 = await api.multiCall({
-    abi: wildCreditABI.slot0,
+    abi: uniV3ABI.slot0,
     calls: poolInfos
   })
 
@@ -463,9 +465,10 @@ async function unwrapSlipstreamNFTs({ balances, nftsAndOwners = [], api, owner, 
   if (!nftsAndOwners.length) {
     if (!nftAddress)
       switch (chain) {
-        case 'optimism': nftAddress = '0xbB5DFE1380333CEE4c2EeBd7202c80dE2256AdF4'; break;
+        case 'optimism': nftAddress = ['0x416b433906b1B72FA758e166e239c43d68dC6F29', '0xbB5DFE1380333CEE4c2EeBd7202c80dE2256AdF4']; break;
         case 'base': nftAddress = '0x827922686190790b37229fd06084350e74485b72'; break;
         case 'swellchain': nftAddress = '0x991d5546C4B442B4c5fdc4c8B8b8d131DEB24702'; break;
+        case 'unichain': nftAddress = '0x991d5546C4B442B4c5fdc4c8B8b8d131DEB24702'; break;
         default: throw new Error('missing default uniswap nft address chain: ' + chain)
       }
 
@@ -529,7 +532,7 @@ async function getPositionIdsByNftAddress({ api, nftsAndOwners, }) {
       }
     })
     positionIdsByNftAddress[nftAddress] = await api.multiCall({
-      abi: wildCreditABI.tokenOfOwnerByIndex, target: nftAddress,
+      abi: uniV3ABI.tokenOfOwnerByIndex, target: nftAddress,
       calls: positionIdCalls,
     })
 
@@ -549,13 +552,13 @@ async function unwrapSlipstreamNFT({ api, balances, owner, positionIds = [], nft
   let nftIdFetcher = uniV3ExtraConfig.nftIdFetcher ?? nftAddress
 
   const factoryKey = getFactoryKey(chain, nftAddress)
-  if (!factories[factoryKey]) factories[factoryKey] = api.call({ target: nftAddress, abi: wildCreditABI.factory, })
+  if (!factories[factoryKey]) factories[factoryKey] = api.call({ target: nftAddress, abi: uniV3ABI.factory, })
   let factory = (await factories[factoryKey])
 
   if ((!positionIds || positionIds.length === 0) && owner) {  // if positionIds are not provided and owner address is passed
     const nftPositions = await api.call({ target: nftIdFetcher, params: owner, abi: 'erc20:balanceOf' })
     positionIds = (await api.multiCall({
-      abi: wildCreditABI.tokenOfOwnerByIndex, target: nftIdFetcher,
+      abi: uniV3ABI.tokenOfOwnerByIndex, target: nftIdFetcher,
       calls: Array(Number(nftPositions)).fill(0).map((_, index) => ({ params: [owner, index] })),
     }))
   }
@@ -928,6 +931,11 @@ async function sumTokens2({
   auraPools = [],
   sumChunkSleep,
 }) {
+
+  if (fetchCoValentTokens && owners.length > 10) {
+    throw new Error('fetchCoValentTokens option is not recommended for more than 10 owners due to rate limits')
+  }
+
   if (api) {
     chain = api.chain ?? chain
     block = api.block ?? block
@@ -1292,4 +1300,5 @@ module.exports = {
   addUniV3LikePosition,
   unwrapSolidlyVeNft,
   unwrapHypervisorVaults,
+  unwrapUniswapV4NFTs,
 }
