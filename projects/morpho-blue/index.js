@@ -34,8 +34,11 @@ const config = {
   },
   arbitrum: {
     morphoBlue: "0x6c247b1F6182318877311737BaC0844bAa518F5e",
-    blackList: ["0xf8b3fa720a9cd8abeed5a81f11f80cd8f93e6b57"],
+    blackList: ["0xf8b3fa720a9cd8abeed5a81f11f80cd8f93e6b57", "0x010700ab046dd8e92b0e3587842080df36364ed3"], // K token inflated by Kinto exploit
     fromBlock: 296446593,
+    blacklistedMarketIds: [
+      "0xfdb8221edcae73f73485d55c30e706906114bc2ff4634870c5c57e8fb83eae6a", // K/USDC bad debt from Kinto exploit
+    ],
   },
   fraxtal: {
     morphoBlue: "0xa6030627d724bA78a59aCf43Be7550b4C5a0653b",
@@ -115,7 +118,7 @@ const config = {
     morphoBlue: "0xD50F2DffFd62f94Ee4AEd9ca05C61d0753268aBc",
     fromBlock: 2741069,
     // added a hack server-side to count vb token tvls only on katana but not global
-    // blackList: ['0x2dca96907fde857dd3d816880a0df407eeb2d2f2', '0x203a662b0bd271a6ed5a60edfbd04bfce608fd36', '0x0913da6da4b42f538b445599b46bb4622342cf52', '0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62']
+    // blackList: [ADDRESSES.katana.VB_USDT, ADDRESSES.katana.VB_USDC, ADDRESSES.katana.VB_WBTC, ADDRESSES.katana.VB_WETH]
   },
   tac: {
     morphoBlue: "0x918B9F2E4B44E20c6423105BB6cCEB71473aD35c",
